@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Download, Loader2, Trash2, Mic2, Copy, Check, Wand2, Settings2, Edit3, ArrowLeft, RefreshCw, Archive } from 'lucide-react';
+import { Play, Square, Download, Loader2, Trash2, Mic2, Copy, Check, Wand2, Settings2, Edit3, ArrowLeft, RefreshCw, Archive } from 'lucide-react';
 import { VoiceProfile, AudioGeneration, ScriptProject } from '../types';
 import { generateSpeech, parseScriptIntoSegments, generateSpeechFromSegments, ScriptSegment } from '../services/gemini';
 import { mergeAudioBuffers } from '../services/extraction';
@@ -20,7 +20,7 @@ interface Props {
   onClearActiveProject: () => void;
 }
 
-export default function Studio({ voices, activeProject, onSaveGeneration, onDeleteVoice, onSaveVoice, onSaveProject, onClearActiveProject }: Props) {
+export default function Studio({ voices, generations, activeProject, onSaveGeneration, onDeleteVoice, onSaveVoice, onSaveProject, onClearActiveProject }: Props) {
   const [mode, setMode] = useState<'classic' | 'magic'>('classic');
   const [magicStep, setMagicStep] = useState<'input' | 'review'>('input');
   const [magicPrompt, setMagicPrompt] = useState('');
@@ -37,7 +37,50 @@ export default function Studio({ voices, activeProject, onSaveGeneration, onDele
   
   const [classicGeneratedAudio, setClassicGeneratedAudio] = useState<string | null>(null);
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const getPreviewAudio = (voiceId: string) => {
+    const voice = voices.find(v => v.id === voiceId);
+    if (voice?.previewAudio) return voice.previewAudio;
+    const gen = generations.find(g => g.voiceId === voiceId);
+    return gen?.audioData;
+  };
+
+  const playVoicePreview = (voiceId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const audioData = getPreviewAudio(voiceId);
+    if (!audioData) {
+      alert("Não há áudio de teste disponível para esta voz.");
+      return;
+    }
+
+    if (playingVoiceId === voiceId && audioRef.current) {
+      audioRef.current.pause();
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(audioData.startsWith('data:') ? audioData : `data:audio/wav;base64,${audioData}`);
+    audioRef.current = audio;
+    
+    audio.onended = () => setPlayingVoiceId(null);
+    audio.play();
+    setPlayingVoiceId(voiceId);
+  };
 
   useEffect(() => {
     if (activeProject) {
@@ -382,7 +425,16 @@ export default function Studio({ voices, activeProject, onSaveGeneration, onDele
                     onClick={() => setSelectedVoiceId(v.id)}
                     className={`p-3 rounded-lg border cursor-pointer transition-all relative group ${selectedVoiceId === v.id ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'}`}
                   >
-                    <div className="font-medium pr-6">{v.name}</div>
+                    <div className="font-medium pr-12 flex items-center gap-2">
+                      {v.name}
+                      <button 
+                        onClick={(e) => playVoicePreview(v.id, e)} 
+                        className={`${playingVoiceId === v.id ? 'text-emerald-400' : 'text-zinc-500 hover:text-emerald-400'}`} 
+                        title={playingVoiceId === v.id ? "Parar Preview" : "Ouvir Preview"}
+                      >
+                        {playingVoiceId === v.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                      </button>
+                    </div>
                     <div className="text-xs opacity-70 mt-1">{v.gender} • {v.age} • {v.style}</div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); onDeleteVoice(v.id); }}
@@ -579,7 +631,7 @@ export default function Studio({ voices, activeProject, onSaveGeneration, onDele
                             placeholder="0:00"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex items-center gap-1">
                           <select
                             value={seg.voiceId || ''}
                             onChange={(e) => handleUpdateSegment(seg.id, 'voiceId', e.target.value)}
@@ -590,6 +642,15 @@ export default function Studio({ voices, activeProject, onSaveGeneration, onDele
                               <option key={v.id} value={v.id}>{v.name}</option>
                             ))}
                           </select>
+                          {seg.voiceId && getPreviewAudio(seg.voiceId) && (
+                            <button 
+                              onClick={(e) => playVoicePreview(seg.voiceId!, e)}
+                              className={`${playingVoiceId === seg.voiceId ? 'text-emerald-400' : 'text-zinc-500 hover:text-emerald-400'}`}
+                              title={playingVoiceId === seg.voiceId ? "Parar Preview" : "Ouvir Preview"}
+                            >
+                              {playingVoiceId === seg.voiceId ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                            </button>
+                          )}
                         </div>
                         <div className="col-span-4">
                           <textarea 

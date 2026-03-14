@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Play, Loader2, Volume2, Settings2, History, Trash2, Download, Upload, Mic } from 'lucide-react';
+import { Save, Play, Square, Loader2, Volume2, Settings2, History, Trash2, Download, Upload, Mic } from 'lucide-react';
 import { VoiceProfile, AudioGeneration } from '../types';
 import { generateSpeech } from '../services/gemini';
 import { generateId } from '../utils';
@@ -20,7 +20,8 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
     gender: 'Feminino',
     age: 'Adulto',
     style: 'Narrador',
-    customPrompt: ''
+    customPrompt: '',
+    previewAudio: undefined
   });
 
   useEffect(() => {
@@ -30,7 +31,8 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
         gender: initialVoice.gender,
         age: initialVoice.age,
         style: initialVoice.style,
-        customPrompt: initialVoice.customPrompt || ''
+        customPrompt: initialVoice.customPrompt || '',
+        previewAudio: initialVoice.previewAudio
       });
     } else {
       setProfile({
@@ -38,7 +40,8 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
         gender: 'Feminino',
         age: 'Adulto',
         style: 'Narrador',
-        customPrompt: ''
+        customPrompt: '',
+        previewAudio: undefined
       });
     }
     setGeneratedAudio(null);
@@ -49,6 +52,17 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
   const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Simulate progress bar while generating
   useEffect(() => {
@@ -104,7 +118,8 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
     
     onSave({
       ...profile,
-      id: initialVoice ? initialVoice.id : generateId()
+      id: initialVoice ? initialVoice.id : generateId(),
+      previewAudio: generatedAudio || initialVoice?.previewAudio
     });
     setGeneratedAudio(null);
   };
@@ -117,13 +132,35 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
       gender: gen.voiceProfile.gender,
       age: gen.voiceProfile.age,
       style: gen.voiceProfile.style,
-      customPrompt: gen.voiceProfile.customPrompt
+      customPrompt: gen.voiceProfile.customPrompt,
+      previewAudio: gen.audioData
     });
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const testGenerations = generations.filter(g => g.source === 'test');
+
+  const togglePreview = () => {
+    if (!profile.previewAudio) return;
+
+    if (isPlayingPreview && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlayingPreview(false);
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(profile.previewAudio.startsWith('data:') ? profile.previewAudio : `data:audio/wav;base64,${profile.previewAudio}`);
+    audioRef.current = audio;
+    
+    audio.onended = () => setIsPlayingPreview(false);
+    audio.play();
+    setIsPlayingPreview(true);
+  };
 
   return (
     <div className="space-y-8">
@@ -136,7 +173,19 @@ export default function VoiceDesigner({ onSave, initialVoice, generations = [], 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">Nome da Voz</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-zinc-400">Nome da Voz</label>
+              {profile.previewAudio && (
+                <button 
+                  onClick={togglePreview}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  title={isPlayingPreview ? "Parar Preview" : "Ouvir Preview"}
+                >
+                  {isPlayingPreview ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                  {isPlayingPreview ? "Parar Preview" : "Ouvir Preview"}
+                </button>
+              )}
+            </div>
             <input 
               type="text" 
               value={profile.name}

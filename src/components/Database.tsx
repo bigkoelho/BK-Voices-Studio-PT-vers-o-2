@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database as DbIcon, FolderOpen, Mic, PlaySquare, Trash2, Edit3, Download, Upload, Check, X, Wand2 } from 'lucide-react';
+import { Database as DbIcon, FolderOpen, Mic, PlaySquare, Trash2, Edit3, Download, Upload, Check, X, Wand2, Play, Square } from 'lucide-react';
 import { ProjectData, ScriptProject, VoiceProfile, AudioGeneration, ExtractionProject, CloningProject } from '../types';
 
 interface Props {
@@ -42,8 +42,52 @@ export default function Database({
   const [activeTab, setActiveTab] = useState<'scripts' | 'extractions' | 'clonings' | 'voices' | 'audios' | 'backup'>('scripts');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const { projects = [], extractions = [], clonings = [], voices = [], generations = [] } = projectData;
+
+  const getPreviewAudio = (voiceId: string) => {
+    const voice = voices.find(v => v.id === voiceId);
+    if (voice?.previewAudio) return voice.previewAudio;
+    const gen = generations.find(g => g.voiceId === voiceId);
+    return gen?.audioData;
+  };
+
+  const playVoicePreview = (voiceId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const audioData = getPreviewAudio(voiceId);
+    if (!audioData) {
+      alert("Não há áudio de teste disponível para esta voz.");
+      return;
+    }
+
+    if (playingVoiceId === voiceId && audioRef.current) {
+      audioRef.current.pause();
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(audioData.startsWith('data:') ? audioData : `data:audio/wav;base64,${audioData}`);
+    audioRef.current = audio;
+    
+    audio.onended = () => setPlayingVoiceId(null);
+    audio.play();
+    setPlayingVoiceId(voiceId);
+  };
 
   const startEdit = (id: string, currentName: string) => {
     setEditingId(id);
@@ -307,6 +351,9 @@ export default function Database({
                   ) : (
                     <h3 className="text-lg font-medium text-zinc-200 truncate flex items-center gap-2">
                       {voice.name}
+                      <button onClick={(e) => playVoicePreview(voice.id, e)} className={`${playingVoiceId === voice.id ? 'text-emerald-400' : 'text-zinc-500 hover:text-emerald-400'}`} title={playingVoiceId === voice.id ? "Parar Preview" : "Ouvir Preview"}>
+                        {playingVoiceId === voice.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                      </button>
                       <button onClick={() => startEdit(voice.id, voice.name)} className="text-zinc-500 hover:text-emerald-400" title="Editar Nome"><Edit3 className="w-3 h-3" /></button>
                       <button onClick={() => onEditVoice(voice)} className="text-zinc-500 hover:text-emerald-400" title="Abrir no Designer"><Wand2 className="w-3 h-3" /></button>
                     </h3>

@@ -7,6 +7,7 @@ export interface VoiceProfile {
   age: string;
   style: string;
   customPrompt: string;
+  previewAudio?: string;
 }
 
 export interface AudioGeneration {
