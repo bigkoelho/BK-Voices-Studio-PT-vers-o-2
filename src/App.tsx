@@ -69,6 +69,10 @@ function App() {
     setGenerations(prev => [gen, ...prev]);
   };
 
+  const handleUpdateGeneration = (gen: AudioGeneration) => {
+    setGenerations(prev => prev.map(g => g.id === gen.id ? gen : g));
+  };
+
   const handleDeleteGeneration = (id: string) => {
     setGenerations(prev => prev.filter(g => g.id !== id));
   };
@@ -392,6 +396,7 @@ function App() {
               onLoadCloning={handleLoadCloning}
               onUpdateVoice={handleUpdateVoice}
               onDeleteVoice={handleDeleteVoice}
+              onUpdateGeneration={handleUpdateGeneration}
               onDeleteGeneration={handleDeleteGeneration}
               onEditVoice={handleEditVoice}
             />

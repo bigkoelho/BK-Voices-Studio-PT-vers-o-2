@@ -16,6 +16,7 @@ interface Props {
   onLoadCloning: (project: CloningProject) => void;
   onUpdateVoice: (voice: VoiceProfile) => void;
   onDeleteVoice: (id: string) => void;
+  onUpdateGeneration: (gen: AudioGeneration) => void;
   onDeleteGeneration: (id: string) => void;
   onEditVoice: (voice: VoiceProfile) => void;
 }
@@ -34,6 +35,7 @@ export default function Database({
   onLoadCloning,
   onUpdateVoice, 
   onDeleteVoice, 
+  onUpdateGeneration,
   onDeleteGeneration,
   onEditVoice
 }: Props) {
@@ -65,6 +67,11 @@ export default function Database({
 
   const saveEditVoice = (voice: VoiceProfile) => {
     onUpdateVoice({ ...voice, name: editName });
+    setEditingId(null);
+  };
+
+  const saveEditAudio = (gen: AudioGeneration) => {
+    onUpdateGeneration({ ...gen, name: editName });
     setEditingId(null);
   };
 
@@ -300,7 +307,8 @@ export default function Database({
                   ) : (
                     <h3 className="text-lg font-medium text-zinc-200 truncate flex items-center gap-2">
                       {voice.name}
-                      <button onClick={() => onEditVoice(voice)} className="text-zinc-500 hover:text-emerald-400"><Edit3 className="w-3 h-3" /></button>
+                      <button onClick={() => startEdit(voice.id, voice.name)} className="text-zinc-500 hover:text-emerald-400" title="Editar Nome"><Edit3 className="w-3 h-3" /></button>
+                      <button onClick={() => onEditVoice(voice)} className="text-zinc-500 hover:text-emerald-400" title="Abrir no Designer"><Wand2 className="w-3 h-3" /></button>
                     </h3>
                   )}
                   <div className="text-xs text-zinc-500 mt-1">{voice.gender} • {voice.age} • {voice.style}</div>
@@ -324,7 +332,25 @@ export default function Database({
               <div key={gen.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors flex flex-col h-full">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0 pr-4">
-                    <h3 className="text-sm font-medium text-emerald-400 truncate">{voice?.name || 'Voz Eliminada'}</h3>
+                    {editingId === gen.id ? (
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="text" 
+                          value={editName} 
+                          onChange={e => setEditName(e.target.value)}
+                          className="w-full bg-zinc-950 border border-emerald-500 rounded px-2 py-1 text-sm text-zinc-100 focus:outline-none"
+                          autoFocus
+                          placeholder="Nome do áudio"
+                        />
+                        <button onClick={() => saveEditAudio(gen)} className="text-emerald-400 hover:text-emerald-300"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setEditingId(null)} className="text-red-400 hover:text-red-300"><X className="w-4 h-4" /></button>
+                      </div>
+                    ) : (
+                      <h3 className="text-sm font-medium text-emerald-400 truncate flex items-center gap-2">
+                        {gen.name || voice?.name || 'Áudio sem nome'}
+                        <button onClick={() => startEdit(gen.id, gen.name || '')} className="text-zinc-500 hover:text-emerald-400" title="Editar Nome"><Edit3 className="w-3 h-3" /></button>
+                      </h3>
+                    )}
                     <div className="text-xs text-zinc-500 mt-1">
                       {new Date(gen.timestamp).toLocaleString()}
                       {project && ` • Projeto: ${project.name}`}

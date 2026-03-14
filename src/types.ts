@@ -11,6 +11,7 @@ export interface VoiceProfile {
 
 export interface AudioGeneration {
   id: string;
+  name?: string;
   voiceId: string;
   text: string;
   audioData: string; // base64
