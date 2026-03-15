@@ -66,7 +66,20 @@ function App() {
   };
 
   const handleSaveGeneration = (gen: AudioGeneration) => {
-    setGenerations(prev => [gen, ...prev]);
+    setGenerations(prev => {
+      const newGens = [gen, ...prev];
+      const result: AudioGeneration[] = [];
+      const counts: Record<string, number> = {};
+      
+      for (const g of newGens) {
+        const source = g.source || 'unknown';
+        counts[source] = (counts[source] || 0) + 1;
+        if (counts[source] <= 10) {
+          result.push(g);
+        }
+      }
+      return result;
+    });
   };
 
   const handleUpdateGeneration = (gen: AudioGeneration) => {
@@ -79,7 +92,19 @@ function App() {
 
   const handleLoadProject = (data: ProjectData) => {
     setVoices(data.voices || []);
-    setGenerations(data.generations || []);
+    
+    const loadedGens = [...(data.generations || [])].sort((a, b) => b.timestamp - a.timestamp);
+    const resultGens: AudioGeneration[] = [];
+    const counts: Record<string, number> = {};
+    for (const g of loadedGens) {
+      const source = g.source || 'unknown';
+      counts[source] = (counts[source] || 0) + 1;
+      if (counts[source] <= 10) {
+        resultGens.push(g);
+      }
+    }
+    setGenerations(resultGens);
+    
     setSavedScripts(data.projects || []);
     setSavedExtractions(data.extractions || []);
     setSavedClonings(data.clonings || []);
