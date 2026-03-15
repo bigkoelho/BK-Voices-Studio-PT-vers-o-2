@@ -18,7 +18,7 @@ export interface AudioGeneration {
   audioData: string; // base64
   timestamp: number;
   projectId?: string;
-  source?: 'script' | 'direct' | 'extraction' | 'test';
+  source?: 'script' | 'direct' | 'extraction' | 'test' | 'studio';
   voiceProfile?: VoiceProfile;
 }
 

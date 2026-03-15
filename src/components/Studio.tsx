@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, Loader2, Trash2, Mic2, Copy, Check, Wand2, Settings2, Edit3, ArrowLeft, RefreshCw, Archive } from 'lucide-react';
+import { Play, Square, Download, Loader2, Trash2, Mic2, Copy, Check, Wand2, Settings2, Edit3, ArrowLeft, RefreshCw, Archive, History } from 'lucide-react';
 import { VoiceProfile, AudioGeneration, ScriptProject } from '../types';
 import { generateSpeech, parseScriptIntoSegments, generateSpeechFromSegments, ScriptSegment } from '../services/gemini';
 import { mergeAudioBuffers } from '../services/extraction';
@@ -20,7 +20,7 @@ interface Props {
   onClearActiveProject: () => void;
 }
 
-export default function Studio({ voices, generations, activeProject, onSaveGeneration, onDeleteVoice, onSaveVoice, onSaveProject, onClearActiveProject }: Props) {
+export default function Studio({ voices, generations, activeProject, onSaveGeneration, onDeleteGeneration, onDeleteVoice, onSaveVoice, onSaveProject, onClearActiveProject }: Props) {
   const [mode, setMode] = useState<'classic' | 'magic'>('classic');
   const [magicStep, setMagicStep] = useState<'input' | 'review'>('input');
   const [magicPrompt, setMagicPrompt] = useState('');
@@ -313,6 +313,16 @@ export default function Studio({ voices, generations, activeProject, onSaveGener
       setProgress(100);
       
       setClassicGeneratedAudio(audioDataUri);
+
+      const newGen: AudioGeneration = {
+        id: generateId(),
+        voiceId: voice.id,
+        text: text,
+        audioData: audioDataUri,
+        timestamp: Date.now(),
+        source: 'studio'
+      };
+      onSaveGeneration(newGen);
     } catch (err: any) {
       setError(err.message || "Erro ao gerar áudio.");
     } finally {
@@ -415,93 +425,141 @@ export default function Studio({ voices, generations, activeProject, onSaveGener
         </div>
         
         {mode === 'classic' ? (
-          <>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Selecionar Voz</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(voices || []).map(v => (
-                  <div 
-                    key={v.id}
-                    onClick={() => setSelectedVoiceId(v.id)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all relative group ${selectedVoiceId === v.id ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'}`}
-                  >
-                    <div className="font-medium pr-12 flex items-center gap-2">
-                      {v.name}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Selecionar Voz</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(voices || []).map(v => (
+                    <div 
+                      key={v.id}
+                      onClick={() => setSelectedVoiceId(v.id)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all relative group ${selectedVoiceId === v.id ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'}`}
+                    >
+                      <div className="font-medium pr-12 flex items-center gap-2">
+                        {v.name}
+                        <button 
+                          onClick={(e) => playVoicePreview(v.id, e)} 
+                          className={`${playingVoiceId === v.id ? 'text-emerald-400' : 'text-zinc-500 hover:text-emerald-400'}`} 
+                          title={playingVoiceId === v.id ? "Parar Preview" : "Ouvir Preview"}
+                        >
+                          {playingVoiceId === v.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                        </button>
+                      </div>
+                      <div className="text-xs opacity-70 mt-1">{v.gender} • {v.age} • {v.style}</div>
                       <button 
-                        onClick={(e) => playVoicePreview(v.id, e)} 
-                        className={`${playingVoiceId === v.id ? 'text-emerald-400' : 'text-zinc-500 hover:text-emerald-400'}`} 
-                        title={playingVoiceId === v.id ? "Parar Preview" : "Ouvir Preview"}
+                        onClick={(e) => { e.stopPropagation(); onDeleteVoice(v.id); }}
+                        className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Eliminar Voz"
                       >
-                        {playingVoiceId === v.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="text-xs opacity-70 mt-1">{v.gender} • {v.age} • {v.style}</div>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onDeleteVoice(v.id); }}
-                      className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Eliminar Voz"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Texto</label>
-              <textarea 
-                value={text}
-                onChange={e => setText(e.target.value)}
-                placeholder="Escreve aqui o texto que queres que a voz leia..."
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-zinc-100 focus:outline-none focus:border-emerald-500 transition-colors resize-none min-h-[150px]"
-              />
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-
-            {isGenerating && (
               <div className="mb-4">
-                <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
-                  <span className="font-medium text-emerald-400">{statusText}</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <div className="w-full bg-zinc-950 border border-zinc-800 rounded-full h-2 overflow-hidden">
-                  <div 
-                    className="bg-emerald-500 h-2 rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Texto</label>
+                <textarea 
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  placeholder="Escreve aqui o texto que queres que a voz leia..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-zinc-100 focus:outline-none focus:border-emerald-500 transition-colors resize-none min-h-[150px]"
+                />
               </div>
-            )}
 
-            <button 
-              onClick={handleGenerateClassic}
-              disabled={isGenerating || !text.trim()}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
-              {isGenerating ? 'A gerar áudio...' : 'Gerar Áudio'}
-            </button>
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
 
-            {classicGeneratedAudio && (
-              <div className="mt-6 pt-6 border-t border-zinc-800 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <p className="text-sm font-medium text-emerald-400 mb-3">Áudio gerado com sucesso:</p>
-                <audio src={classicGeneratedAudio} controls className="w-full h-10 mb-4" autoPlay />
-                <button 
-                  onClick={() => downloadAudio(classicGeneratedAudio, `audio_${generateId().slice(0,6)}`)}
-                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <Download className="w-5 h-5" />
-                  Transferir Áudio
-                </button>
+              {isGenerating && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
+                    <span className="font-medium text-emerald-400">{statusText}</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-zinc-950 border border-zinc-800 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="bg-emerald-500 h-2 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={handleGenerateClassic}
+                disabled={isGenerating || !text.trim()}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+                {isGenerating ? 'A gerar áudio...' : 'Gerar Áudio'}
+              </button>
+
+              {classicGeneratedAudio && (
+                <div className="mt-6 pt-6 border-t border-zinc-800 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <p className="text-sm font-medium text-emerald-400 mb-3">Áudio gerado com sucesso:</p>
+                  <audio src={classicGeneratedAudio} controls className="w-full h-10 mb-4" autoPlay />
+                  <button 
+                    onClick={() => downloadAudio(classicGeneratedAudio, `audio_${generateId().slice(0,6)}`)}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Transferir Áudio
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-zinc-800 pt-6 lg:pt-0 lg:pl-6">
+              <h3 className="text-lg font-medium text-zinc-200 mb-4 flex items-center gap-2">
+                <History className="w-5 h-5 text-emerald-500" />
+                Histórico
+              </h3>
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {generations.filter(g => g.source === 'studio').length === 0 ? (
+                  <p className="text-sm text-zinc-500 text-center py-4">Nenhum áudio gerado ainda.</p>
+                ) : (
+                  generations.filter(g => g.source === 'studio').sort((a, b) => b.timestamp - a.timestamp).map(gen => (
+                    <div key={gen.id} className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-emerald-400 truncate pr-2">
+                          {voices.find(v => v.id === gen.voiceId)?.name || 'Voz Desconhecida'}
+                        </span>
+                        <span className="text-[10px] text-zinc-500 shrink-0">
+                          {new Date(gen.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 line-clamp-2 mb-3" title={gen.text}>
+                        "{gen.text}"
+                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <audio src={gen.audioData} controls className="h-8 w-full" />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button 
+                            onClick={() => downloadAudio(gen.audioData, `audio_${gen.id.slice(0,6)}`)}
+                            className="p-1.5 text-zinc-500 hover:text-emerald-400 transition-colors"
+                            title="Transferir"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => onDeleteGeneration(gen.id)}
+                            className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            )}
-          </>
+            </div>
+          </div>
         ) : (
           <>
             {magicStep === 'input' && (
