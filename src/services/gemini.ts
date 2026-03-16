@@ -231,30 +231,16 @@ export async function generateSpeechFromSegments(voiceProfile: VoiceProfile, seg
     try {
       let prompt = seg.direction ? `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu) com a seguinte direção (${seg.direction}): ${seg.text}` : `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu): ${seg.text}`;
       
-      const parts: any[] = [];
-      
       if (currentVoiceProfile.previewAudio) {
-        const [meta, base64Data] = currentVoiceProfile.previewAudio.split(',');
-        const mimeType = meta.split(':')[1].split(';')[0];
-        
-        prompt = `Ouve o áudio fornecido. Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. O texto a ler é: "${seg.text}"`;
+        prompt = `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O texto a ler é: "${seg.text}"`;
         if (seg.direction) {
           prompt += ` Considera também esta direção: ${seg.direction}.`;
         }
-        
-        parts.push({
-          inlineData: {
-            data: base64Data,
-            mimeType: mimeType || 'audio/wav'
-          }
-        });
       }
-      
-      parts.push({ text: prompt });
       
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts }],
+        contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -292,30 +278,16 @@ export async function generateSpeech(voiceProfile: VoiceProfile, text: string): 
   try {
     let prompt = voiceProfile.customPrompt ? `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu) com a seguinte direção (${voiceProfile.customPrompt}): ${text}` : `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu): ${text}`;
     
-    const parts: any[] = [];
-    
     if (voiceProfile.previewAudio) {
-      const [meta, base64Data] = voiceProfile.previewAudio.split(',');
-      const mimeType = meta.split(':')[1].split(';')[0];
-      
-      prompt = `Ouve o áudio fornecido. Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. O texto a ler é: "${text}"`;
+      prompt = `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O texto a ler é: "${text}"`;
       if (voiceProfile.customPrompt) {
         prompt += ` Considera também esta direção: ${voiceProfile.customPrompt}.`;
       }
-      
-      parts.push({
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType || 'audio/wav'
-        }
-      });
     }
-    
-    parts.push({ text: prompt });
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts }],
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -348,17 +320,7 @@ export async function cloneVoiceFromAudio(
   const voiceName = getGeminiVoiceName(voiceProfile);
 
   try {
-    const base64Audio = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(audioBlob);
-    });
-
-    let prompt = `Ouve o áudio fornecido. Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar EXATAMENTE a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. Não cries uma nova entoação, mantém o estilo original da voz importada.`;
+    let prompt = `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. Não cries uma nova entoação, mantém o estilo original da voz importada.`;
     
     if (voiceProfile.customPrompt) {
       prompt += ` Considera também esta direção de voz: ${voiceProfile.customPrompt}.`;
@@ -370,12 +332,6 @@ export async function cloneVoiceFromAudio(
       model: "gemini-2.5-flash-preview-tts",
       contents: [{
         parts: [
-          {
-            inlineData: {
-              data: base64Audio,
-              mimeType: audioBlob.type || 'audio/wav'
-            }
-          },
           { text: prompt }
         ]
       }],
