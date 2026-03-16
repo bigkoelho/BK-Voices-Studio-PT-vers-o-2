@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Mic, Play, Loader2, Check, Wand2, Trash2, Download, RefreshCw, Save, Pause, PlaySquare } from 'lucide-react';
+import { Upload, Mic, Play, Loader2, Check, Wand2, Trash2, Download, RefreshCw, Save, Pause, PlaySquare, Copy, Plus } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { VoiceProfile, AudioGeneration, ExtractionSegment, CloningProject } from '../types';
@@ -221,10 +221,11 @@ export default function VoiceCloning({ voices, activeProject, onSaveGeneration, 
 
     try {
       const audioSegments: { audioDataUri: string, startTime: number }[] = [];
-      const totalSegs = segments.length;
+      const selectedSegments = segments.filter(s => s.selected !== false);
+      const totalSegs = selectedSegments.length;
       
-      for (let i = 0; i < segments.length; i++) {
-        const seg = segments[i];
+      for (let i = 0; i < selectedSegments.length; i++) {
+        const seg = selectedSegments[i];
         
         if (seg.audioDataUri) {
           audioSegments.push({ audioDataUri: seg.audioDataUri, startTime: seg.startTime });
@@ -277,6 +278,40 @@ export default function VoiceCloning({ voices, activeProject, onSaveGeneration, 
 
   const updateSegmentVoice = (id: string, voiceId: string) => {
     setSegments(prev => prev.map(s => s.id === id ? { ...s, forcedVoiceId: voiceId } : s));
+  };
+
+  const updateSegmentText = (id: string, text: string) => {
+    setSegments(prev => prev.map(s => s.id === id ? { ...s, text } : s));
+  };
+
+  const updateSegmentStartTime = (id: string, startTime: number) => {
+    setSegments(prev => prev.map(s => s.id === id ? { ...s, startTime } : s));
+  };
+
+  const duplicateSegment = (index: number) => {
+    const segToCopy = segments[index];
+    const newSeg = { ...segToCopy, id: generateId(), audioDataUri: undefined };
+    const newSegments = [...segments];
+    newSegments.splice(index + 1, 0, newSeg);
+    setSegments(newSegments);
+  };
+
+  const addSegmentBelow = (index: number) => {
+    const currentSeg = segments[index];
+    const newSeg = {
+      id: generateId(),
+      speaker: currentSeg.speaker,
+      startTime: currentSeg.startTime,
+      text: '',
+      selected: true
+    };
+    const newSegments = [...segments];
+    newSegments.splice(index + 1, 0, newSeg);
+    setSegments(newSegments);
+  };
+
+  const deleteSegment = (id: string) => {
+    setSegments(prev => prev.filter(s => s.id !== id));
   };
 
   const toggleSegmentSelection = (id: string) => {
@@ -527,8 +562,15 @@ export default function VoiceCloning({ voices, activeProject, onSaveGeneration, 
                       className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950"
                     />
                   </div>
-                  <div className="col-span-1 text-sm font-mono text-zinc-400">
-                    {seg.startTime.toFixed(1)}s
+                  <div className="col-span-1 text-sm font-mono text-zinc-400 flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={seg.startTime}
+                      onChange={(e) => updateSegmentStartTime(seg.id, parseFloat(e.target.value) || 0)}
+                      className="w-16 bg-zinc-950 border border-zinc-800 rounded px-1 py-1 text-zinc-300 focus:outline-none focus:border-emerald-500"
+                      step="0.1"
+                      min="0"
+                    />s
                   </div>
                   <div className="col-span-3">
                     <select
@@ -543,11 +585,36 @@ export default function VoiceCloning({ voices, activeProject, onSaveGeneration, 
                     </select>
                   </div>
                   <div className="col-span-5">
-                    <div className="text-sm text-zinc-300 line-clamp-2" title={seg.text}>
-                      {seg.text}
-                    </div>
+                    <textarea
+                      value={seg.text}
+                      onChange={(e) => updateSegmentText(seg.id, e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-sm text-zinc-300 focus:outline-none focus:border-emerald-500 resize-none"
+                      rows={2}
+                      placeholder="Texto do bloco..."
+                    />
                   </div>
-                  <div className="col-span-2 flex items-center justify-end gap-1">
+                  <div className="col-span-2 flex items-center justify-end gap-1 flex-wrap">
+                    <button 
+                      onClick={() => duplicateSegment(idx)}
+                      className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors"
+                      title="Duplicar Bloco"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => addSegmentBelow(idx)}
+                      className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors"
+                      title="Adicionar Bloco Abaixo"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => deleteSegment(seg.id)}
+                      className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
+                      title="Apagar Bloco"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => playOriginalSegment(seg)}
                       className={`p-1.5 rounded-md transition-colors ${playingOriginalId === seg.id ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
@@ -571,6 +638,14 @@ export default function VoiceCloning({ voices, activeProject, onSaveGeneration, 
                           title="Descarregar Bloco"
                         >
                           <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => generateSingleSegment(seg.id)}
+                          disabled={isGenerating}
+                          className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
+                          title="Refazer Bloco"
+                        >
+                          <RefreshCw className="w-4 h-4" />
                         </button>
                       </>
                     ) : (

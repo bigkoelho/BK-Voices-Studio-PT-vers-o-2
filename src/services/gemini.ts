@@ -229,11 +229,32 @@ export async function generateSpeechFromSegments(voiceProfile: VoiceProfile, seg
     const voiceName = getGeminiVoiceName(currentVoiceProfile);
 
     try {
-      const prompt = seg.direction ? `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu) com a seguinte direção (${seg.direction}): ${seg.text}` : `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu): ${seg.text}`;
+      let prompt = seg.direction ? `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu) com a seguinte direção (${seg.direction}): ${seg.text}` : `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu): ${seg.text}`;
+      
+      const parts: any[] = [];
+      
+      if (currentVoiceProfile.previewAudio) {
+        const [meta, base64Data] = currentVoiceProfile.previewAudio.split(',');
+        const mimeType = meta.split(':')[1].split(';')[0];
+        
+        prompt = `Ouve o áudio fornecido. Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. O texto a ler é: "${seg.text}"`;
+        if (seg.direction) {
+          prompt += ` Considera também esta direção: ${seg.direction}.`;
+        }
+        
+        parts.push({
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeType || 'audio/wav'
+          }
+        });
+      }
+      
+      parts.push({ text: prompt });
       
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -269,11 +290,32 @@ export async function generateSpeech(voiceProfile: VoiceProfile, text: string): 
   const voiceName = getGeminiVoiceName(voiceProfile);
 
   try {
-    const prompt = voiceProfile.customPrompt ? `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu) com a seguinte direção (${voiceProfile.customPrompt}): ${text}` : `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu): ${text}`;
+    let prompt = voiceProfile.customPrompt ? `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu) com a seguinte direção (${voiceProfile.customPrompt}): ${text}` : `Lê estritamente em Português de Portugal (PT-PT, sotaque europeu): ${text}`;
+    
+    const parts: any[] = [];
+    
+    if (voiceProfile.previewAudio) {
+      const [meta, base64Data] = voiceProfile.previewAudio.split(',');
+      const mimeType = meta.split(':')[1].split(';')[0];
+      
+      prompt = `Ouve o áudio fornecido. Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. O texto a ler é: "${text}"`;
+      if (voiceProfile.customPrompt) {
+        prompt += ` Considera também esta direção: ${voiceProfile.customPrompt}.`;
+      }
+      
+      parts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType || 'audio/wav'
+        }
+      });
+    }
+    
+    parts.push({ text: prompt });
     
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ parts }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {

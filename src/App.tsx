@@ -201,7 +201,7 @@ function App() {
       <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-4 relative">
         <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center shadow-xl">
           <Lock className="w-12 h-12 text-emerald-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-semibold mb-2">Bem-vindo ao BK- Voices Studio V1.5</h2>
+          <h2 className="text-2xl font-semibold mb-2">Bem-vindo ao BK- Voices Studio V1.6</h2>
           <p className="text-zinc-400 mb-8">
             Para iniciar a aplicação, por favor introduz a tua chave de API da Google Gemini.
           </p>
@@ -233,7 +233,7 @@ function App() {
             As tuas chaves não são guardadas nos nossos servidores. Ficam apenas na memória do teu browser durante esta sessão.
           </p>
         </div>
-        <div className="absolute bottom-4 left-4 text-xs font-mono text-zinc-600">v1.5</div>
+        <div className="absolute bottom-4 left-4 text-xs font-mono text-zinc-600">v1.6</div>
       </div>
     );
   }
@@ -243,7 +243,7 @@ function App() {
       <header className="bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
           <Mic className="w-6 h-6 text-emerald-500" />
-          <h1 className="text-xl font-semibold tracking-tight">BK- voice studio PT V1.5</h1>
+          <h1 className="text-xl font-semibold tracking-tight">BK- voice studio PT V1.6</h1>
         </div>
         <nav className="flex gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
           <button
