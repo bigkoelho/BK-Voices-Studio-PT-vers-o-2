@@ -300,7 +300,62 @@ export async function cloneVoiceFromAudio(
   segment: ExtractionSegment,
   audioBlob: Blob
 ): Promise<string> {
-  // Gemini does not support direct voice cloning from audio blob yet.
-  // We fallback to generating speech from the segment text using the selected voice profile.
-  return generateSpeech(voiceProfile, segment.text);
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key not found");
+  const ai = new GoogleGenAI({ apiKey });
+  const voiceName = getGeminiVoiceName(voiceProfile);
+
+  try {
+    const base64Audio = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioBlob);
+    });
+
+    let prompt = `Ouve o áudio fornecido. Lê estritamente em Português de Portugal (PT-PT, sotaque europeu). O teu objetivo é replicar EXATAMENTE a mesma entoação, emoção, ritmo, pausas e estilo do áudio original, mas usando a tua própria voz. Não cries uma nova entoação, mantém o estilo original da voz importada.`;
+    
+    if (voiceProfile.customPrompt) {
+      prompt += ` Considera também esta direção de voz: ${voiceProfile.customPrompt}.`;
+    }
+    
+    prompt += ` O texto a ler é: "${segment.text}"`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{
+        parts: [
+          {
+            inlineData: {
+              data: base64Audio,
+              mimeType: audioBlob.type || 'audio/wav'
+            }
+          },
+          { text: prompt }
+        ]
+      }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName },
+          },
+        },
+      },
+    });
+
+    const generatedBase64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (generatedBase64Audio) {
+      return createWavDataUri(generatedBase64Audio);
+    } else {
+      throw new Error("Nenhum áudio retornado pela API.");
+    }
+  } catch (error: any) {
+    console.error("Erro ao clonar voz com áudio de referência, a usar fallback:", error);
+    // Fallback to simple generateSpeech if multimodal fails or is not supported
+    return generateSpeech(voiceProfile, segment.text);
+  }
 }
